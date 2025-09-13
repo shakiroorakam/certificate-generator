@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/certificate-generator/static/css/main.eef84687.css",
+    "main.js": "/certificate-generator/static/js/main.60746f72.js",
+    "index.html": "/certificate-generator/index.html",
+    "main.eef84687.css.map": "/certificate-generator/static/css/main.eef84687.css.map",
+    "main.60746f72.js.map": "/certificate-generator/static/js/main.60746f72.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.eef84687.css",
+    "static/js/main.60746f72.js"
+  ]
+}
