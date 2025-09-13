@@ -1,12 +1,15 @@
-    [
-      {
-        "origin": ["http://localhost:3000"],
-        "method": ["GET", "POST", "PUT", "DELETE", "HEAD"],
-        "responseHeader": [
-          "Content-Type",
-          "Access-Control-Allow-Origin"
-        ],
-        "maxAgeSeconds": 3600
-      }
-    ]
-    
+[
+  {
+    "origin": ["http://localhost:3000"],
+    "method": ["GET"],
+    "responseHeader": [],
+    "maxAgeSeconds": 3600
+  },
+  {
+    "origin": ["https://shakiroorakam.github.io"],
+    "method": ["GET"],
+    "responseHeader": [],
+    "maxAgeSeconds": 3600
+  }
+]
+

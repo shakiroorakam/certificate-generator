@@ -26,14 +26,14 @@ const ManageEvent = () => {
     const [positionX, setPositionX] = useState(50);
     const [positionY, setPositionY] = useState(50);
     const [fontWeight, setFontWeight] = useState('bold');
-    const [fontFamily, setFontFamily] = useState('Poppins'); // New state for font family
+    const [fontFamily, setFontFamily] = useState('Poppins');
 
     // State for Participants
     const [participants, setParticipants] = useState([]);
     const [newParticipantName, setNewParticipantName] = useState('');
     const [newParticipantMobile, setNewParticipantMobile] = useState('');
 
-    const availableFonts = ['Poppins', 'Montserrat', 'Playfair Display', 'Roboto', 'Tangerine', 'Times New Roman'];
+    const availableFonts = ['Poppins', 'Montserrat', 'Playfair Display', 'Roboto', 'Tangerine', 'Times New Roman', 'Raleway'];
 
 
     useEffect(() => {
@@ -54,7 +54,7 @@ const ManageEvent = () => {
                     setPositionX(eventData.positionX || 50);
                     setPositionY(eventData.positionY || 50);
                     setFontWeight(eventData.fontWeight || 'bold');
-                    setFontFamily(eventData.fontFamily || 'Poppins'); // Load font family
+                    setFontFamily(eventData.fontFamily || 'Poppins');
 
                     if (eventData.mode === 'manual') {
                         const participantsCollectionRef = collection(db, 'events', eventId, 'participants');
@@ -98,7 +98,7 @@ const ManageEvent = () => {
                 positionX,
                 positionY,
                 fontWeight,
-                fontFamily, // Save font family
+                fontFamily,
             });
             alert('Event updated successfully!');
         } catch (err) {
@@ -216,7 +216,7 @@ const ManageEvent = () => {
                                                     transform: 'translate(-50%, -50%)',
                                                     fontSize: `${fontSize / 30}vw`,
                                                     fontWeight: fontWeight,
-                                                    fontFamily: `'${fontFamily}', sans-serif`, // Use state for font family
+                                                    fontFamily: `'${fontFamily}', sans-serif`,
                                                     color: 'black',
                                                     textShadow: '0px 0px 5px white',
                                                 }}>
@@ -293,3 +293,4 @@ const ManageEvent = () => {
 };
 
 export default ManageEvent;
+
