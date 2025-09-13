@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../firebase/config';
+import jsPDF from 'jspdf'; // Import the new library
 
 const EventPage = () => {
     const { eventId } = useParams();
@@ -9,12 +10,8 @@ const EventPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     
-    // This state now holds the name retrieved from the DB or entered by the user
     const [certificateName, setCertificateName] = useState('');
-    
-    // State for the input field (can be name or mobile)
     const [userInput, setUserInput] = useState('');
-
     const [isVerified, setIsVerified] = useState(false);
 
     useEffect(() => {
@@ -25,7 +22,6 @@ const EventPage = () => {
                 if (docSnap.exists()) {
                     const eventData = { id: docSnap.id, ...docSnap.data() };
                     setEvent(eventData);
-                    // If event is public, the user is instantly "verified" to enter their name
                     if (eventData.mode === 'public') {
                         setIsVerified(true);
                     }
@@ -49,13 +45,13 @@ const EventPage = () => {
 
         if (event.mode === 'public') {
             setCertificateName(userInput);
-        } else { // Manual mode
+        } else { 
             const participantsRef = collection(db, 'events', eventId, 'participants');
             const q = query(participantsRef, where("mobile", "==", userInput.trim()));
             const querySnapshot = await getDocs(q);
             if (!querySnapshot.empty) {
                 const participantData = querySnapshot.docs[0].data();
-                setCertificateName(participantData.name); // Set the name from the database
+                setCertificateName(participantData.name);
                 setIsVerified(true);
             } else {
                 setError('This mobile number is not registered for this event.');
@@ -67,10 +63,8 @@ const EventPage = () => {
 
     if (loading && !event) return <div className="vh-100 d-flex justify-content-center align-items-center"><div className="spinner-border text-primary"></div></div>;
     
-    // Show error only if not verified
     if (error && !isVerified) return <div className="vh-100 d-flex justify-content-center align-items-center"><p className="alert alert-danger">{error}</p></div>;
 
-    // The main form for lookup or name entry
     const renderInputForm = () => (
         <div>
             <h2 className="h3 fw-bold text-center text-primary mb-2">{event?.eventName}</h2>
@@ -102,7 +96,6 @@ const EventPage = () => {
         <div className="min-vh-100 d-flex justify-content-center align-items-center p-4" style={{ backgroundColor: '#f0f2f5' }}>
             <div className="card shadow-lg border-0" style={{ maxWidth: '600px', width: '100%' }}>
                 <div className="card-body p-5">
-                    {/* If verified, show certificate. If public, show form to get name. If manual, show form to get mobile. */}
                     {isVerified && certificateName ? (
                         <CertificateGenerator event={event} userName={certificateName} />
                     ) : (
@@ -116,6 +109,11 @@ const EventPage = () => {
 
 const CertificateGenerator = ({ event, userName }) => {
     const [isDownloading, setIsDownloading] = useState(false);
+
+    const fontSize = event.fontSize || 60;
+    const positionX = event.positionX || 50;
+    const positionY = event.positionY || 50;
+    const fontWeight = event.fontWeight || 'bold';
 
     const handleDownload = async () => {
         if (!event.certificateUrl) {
@@ -140,15 +138,24 @@ const CertificateGenerator = ({ event, userName }) => {
             ctx.drawImage(template, 0, 0);
 
             ctx.fillStyle = '#333333';
-            ctx.font = 'bold 60px Poppins'; 
+            ctx.font = `${fontWeight} ${fontSize}px Poppins`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(userName, canvas.width / 2, canvas.height / 2 + 20);
+            const x = (canvas.width * positionX) / 100;
+            const y = (canvas.height * positionY) / 100;
+            ctx.fillText(userName, x, y);
 
-            const link = document.createElement('a');
-            link.download = `certificate-${userName.replace(/\s+/g, '-')}.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
+            // --- PDF Generation Logic ---
+            const imgData = canvas.toDataURL('image/jpeg', 1.0);
+            const pdf = new jsPDF({
+                orientation: template.width > template.height ? 'landscape' : 'portrait',
+                unit: 'px',
+                format: [template.width, template.height]
+            });
+
+            pdf.addImage(imgData, 'JPEG', 0, 0, template.width, template.height);
+            pdf.save(`certificate-${userName.replace(/\s+/g, '-')}.pdf`);
+            // --- End of PDF Logic ---
 
         } catch (error) {
             console.error("Failed to generate certificate:", error);
@@ -168,11 +175,12 @@ const CertificateGenerator = ({ event, userName }) => {
                  <p 
                     className="position-absolute" 
                     style={{
-                        top: '53.5%', 
-                        left: '50%', 
+                        top: `${positionY}%`, 
+                        left: `${positionX}%`, 
                         transform: 'translate(-50%, -50%)',
                         color: '#333333',
-                        fontSize: '1.5vw',
+                        fontSize: `${fontSize / 30}vw`,
+                        fontWeight: fontWeight,
                         fontFamily: 'Poppins, sans-serif',
                         padding: '0 10px',
                         width: '100%'
@@ -183,11 +191,11 @@ const CertificateGenerator = ({ event, userName }) => {
             </div>
 
             <div className="d-grid">
-                <button onClick={handleDownload} className="btn btn-primary btn-lg" disabled={isDownloading}>
+                <button onClick={handleDownload} className="btn btn-danger btn-lg" disabled={isDownloading}>
                     {isDownloading ? (
-                        <><span className="spinner-border spinner-border-sm me-2"></span>Preparing...</>
+                        <><span className="spinner-border spinner-border-sm me-2"></span>Preparing PDF...</>
                     ) : (
-                        <><i className="bi bi-download me-2"></i>Download Certificate</>
+                        <><i className="bi bi-file-earmark-pdf-fill me-2"></i>Download Certificate (PDF)</>
                     )}
                 </button>
             </div>

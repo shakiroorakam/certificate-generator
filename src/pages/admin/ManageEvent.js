@@ -22,6 +22,10 @@ const ManageEvent = () => {
     // State for Certificate
     const [certificateFile, setCertificateFile] = useState(null);
     const [certificatePreview, setCertificatePreview] = useState('');
+    const [fontSize, setFontSize] = useState(60);
+    const [positionX, setPositionX] = useState(50);
+    const [positionY, setPositionY] = useState(50);
+    const [fontWeight, setFontWeight] = useState('bold'); // New state for font weight
 
     // State for Participants
     const [participants, setParticipants] = useState([]);
@@ -42,6 +46,10 @@ const ManageEvent = () => {
                     setEventDescription(eventData.eventDescription);
                     setMode(eventData.mode);
                     setCertificatePreview(eventData.certificateUrl || '');
+                    setFontSize(eventData.fontSize || 60);
+                    setPositionX(eventData.positionX || 50);
+                    setPositionY(eventData.positionY || 50);
+                    setFontWeight(eventData.fontWeight || 'bold'); // Load font weight
 
                     if (eventData.mode === 'manual') {
                         const participantsCollectionRef = collection(db, 'events', eventId, 'participants');
@@ -81,6 +89,10 @@ const ManageEvent = () => {
                 eventDescription,
                 mode,
                 certificateUrl,
+                fontSize,
+                positionX,
+                positionY,
+                fontWeight, // Save font weight
             });
             alert('Event updated successfully!');
         } catch (err) {
@@ -140,14 +152,12 @@ const ManageEvent = () => {
             const wsname = wb.SheetNames[0];
             const ws = wb.Sheets[wsname];
             const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
-            // Expects Name in column A, Mobile in column B
             const newParticipants = data.slice(1).map(row => ({ name: row[0], mobile: String(row[1]) })).filter(p => p.name && p.mobile);
             
             const participantsCollectionRef = collection(db, 'events', eventId, 'participants');
             for (const participant of newParticipants) {
                 await addDoc(participantsCollectionRef, participant);
             }
-            // Refetch participants to show the newly added ones
             const participantsSnap = await getDocs(query(participantsCollectionRef, orderBy('name')));
             setParticipants(participantsSnap.docs.map(pDoc => ({ id: pDoc.id, ...pDoc.data() })));
             alert(`${newParticipants.length} participants added successfully!`);
@@ -187,11 +197,56 @@ const ManageEvent = () => {
                             </div>
                         )}
                         {activeTab === 'certificate' && (
-                            <div>
-                                <h4 className="mb-3">Certificate Template</h4>
-                                <input type="file" className="form-control" accept="image/*" onChange={handleFileUpload} />
-                                {certificatePreview && <div className="mt-3"><p>Preview:</p><img src={certificatePreview} alt="Preview" className="img-fluid rounded border" style={{ maxHeight: '400px' }} /></div>}
-                            </div>
+                           <div className="row g-4">
+                                <div className="col-md-8">
+                                    <h4 className="mb-3">Certificate Preview</h4>
+                                    <div className="position-relative">
+                                        {certificatePreview ? (
+                                            <>
+                                                <img src={certificatePreview} alt="Preview" className="img-fluid rounded border" />
+                                                <p className="position-absolute user-select-none" style={{
+                                                    top: `${positionY}%`,
+                                                    left: `${positionX}%`,
+                                                    transform: 'translate(-50%, -50%)',
+                                                    fontSize: `${fontSize / 30}vw`, // Responsive preview
+                                                    fontWeight: fontWeight, // Use state for font weight
+                                                    color: 'black',
+                                                    textShadow: '0px 0px 5px white',
+                                                }}>
+                                                    Participant Name
+                                                </p>
+                                            </>
+                                        ) : (
+                                            <div className="text-center p-5 bg-light rounded">No template uploaded.</div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="col-md-4">
+                                     <h4 className="mb-3">Upload Template</h4>
+                                     <input type="file" className="form-control" accept="image/*" onChange={handleFileUpload} />
+                                     <hr className="my-4"/>
+                                     <h4 className="mb-3">Text Customization</h4>
+                                     <div className="mb-3">
+                                         <label className="form-label">Font Weight</label>
+                                         <select className="form-select" value={fontWeight} onChange={e => setFontWeight(e.target.value)}>
+                                             <option value="normal">Normal</option>
+                                             <option value="bold">Bold</option>
+                                         </select>
+                                     </div>
+                                     <div className="mb-3">
+                                         <label className="form-label">Font Size: {fontSize}px</label>
+                                         <input type="range" className="form-range" min="10" max="150" value={fontSize} onChange={e => setFontSize(Number(e.target.value))} />
+                                     </div>
+                                     <div className="mb-3">
+                                         <label className="form-label">Horizontal Position: {positionX}%</label>
+                                         <input type="range" className="form-range" min="0" max="100" value={positionX} onChange={e => setPositionX(Number(e.target.value))} />
+                                     </div>
+                                     <div className="mb-3">
+                                         <label className="form-label">Vertical Position: {positionY}%</label>
+                                         <input type="range" className="form-range" min="0" max="100" value={positionY} onChange={e => setPositionY(Number(e.target.value))} />
+                                     </div>
+                                </div>
+                           </div>
                         )}
                         {activeTab === 'participants' && (
                              mode === 'manual' ? (
