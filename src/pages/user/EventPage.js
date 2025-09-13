@@ -114,6 +114,7 @@ const CertificateGenerator = ({ event, userName }) => {
     const positionX = event.positionX || 50;
     const positionY = event.positionY || 50;
     const fontWeight = event.fontWeight || 'bold';
+    const fontFamily = event.fontFamily || 'Poppins'; // Get font family
 
     const handleDownload = async () => {
         if (!event.certificateUrl) {
@@ -137,8 +138,9 @@ const CertificateGenerator = ({ event, userName }) => {
             canvas.height = template.height;
             ctx.drawImage(template, 0, 0);
 
+            // Use dynamic values from the event, including font family
             ctx.fillStyle = '#333333';
-            ctx.font = `${fontWeight} ${fontSize}px Poppins`;
+            ctx.font = `${fontWeight} ${fontSize}px "${fontFamily}"`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             const x = (canvas.width * positionX) / 100;
@@ -181,7 +183,7 @@ const CertificateGenerator = ({ event, userName }) => {
                         color: '#333333',
                         fontSize: `${fontSize / 30}vw`,
                         fontWeight: fontWeight,
-                        fontFamily: 'Poppins, sans-serif',
+                        fontFamily: `'${fontFamily}', sans-serif`, // Apply font family to preview
                         padding: '0 10px',
                         width: '100%'
                     }}
@@ -204,3 +206,4 @@ const CertificateGenerator = ({ event, userName }) => {
 };
 
 export default EventPage;
+

@@ -25,12 +25,16 @@ const ManageEvent = () => {
     const [fontSize, setFontSize] = useState(60);
     const [positionX, setPositionX] = useState(50);
     const [positionY, setPositionY] = useState(50);
-    const [fontWeight, setFontWeight] = useState('bold'); // New state for font weight
+    const [fontWeight, setFontWeight] = useState('bold');
+    const [fontFamily, setFontFamily] = useState('Poppins'); // New state for font family
 
     // State for Participants
     const [participants, setParticipants] = useState([]);
     const [newParticipantName, setNewParticipantName] = useState('');
     const [newParticipantMobile, setNewParticipantMobile] = useState('');
+
+    const availableFonts = ['Poppins', 'Montserrat', 'Playfair Display', 'Roboto', 'Tangerine', 'Times New Roman'];
+
 
     useEffect(() => {
         const fetchEventAndParticipants = async () => {
@@ -49,7 +53,8 @@ const ManageEvent = () => {
                     setFontSize(eventData.fontSize || 60);
                     setPositionX(eventData.positionX || 50);
                     setPositionY(eventData.positionY || 50);
-                    setFontWeight(eventData.fontWeight || 'bold'); // Load font weight
+                    setFontWeight(eventData.fontWeight || 'bold');
+                    setFontFamily(eventData.fontFamily || 'Poppins'); // Load font family
 
                     if (eventData.mode === 'manual') {
                         const participantsCollectionRef = collection(db, 'events', eventId, 'participants');
@@ -92,7 +97,8 @@ const ManageEvent = () => {
                 fontSize,
                 positionX,
                 positionY,
-                fontWeight, // Save font weight
+                fontWeight,
+                fontFamily, // Save font family
             });
             alert('Event updated successfully!');
         } catch (err) {
@@ -208,8 +214,9 @@ const ManageEvent = () => {
                                                     top: `${positionY}%`,
                                                     left: `${positionX}%`,
                                                     transform: 'translate(-50%, -50%)',
-                                                    fontSize: `${fontSize / 30}vw`, // Responsive preview
-                                                    fontWeight: fontWeight, // Use state for font weight
+                                                    fontSize: `${fontSize / 30}vw`,
+                                                    fontWeight: fontWeight,
+                                                    fontFamily: `'${fontFamily}', sans-serif`, // Use state for font family
                                                     color: 'black',
                                                     textShadow: '0px 0px 5px white',
                                                 }}>
@@ -226,6 +233,12 @@ const ManageEvent = () => {
                                      <input type="file" className="form-control" accept="image/*" onChange={handleFileUpload} />
                                      <hr className="my-4"/>
                                      <h4 className="mb-3">Text Customization</h4>
+                                     <div className="mb-3">
+                                         <label className="form-label">Font Family</label>
+                                         <select className="form-select" value={fontFamily} onChange={e => setFontFamily(e.target.value)}>
+                                             {availableFonts.map(font => <option key={font} value={font}>{font}</option>)}
+                                         </select>
+                                     </div>
                                      <div className="mb-3">
                                          <label className="form-label">Font Weight</label>
                                          <select className="form-select" value={fontWeight} onChange={e => setFontWeight(e.target.value)}>
