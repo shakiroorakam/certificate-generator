@@ -164,7 +164,7 @@
                                     </div>
                                     <div className="d-grid">
                                         <button type="submit" className="btn btn-success" disabled={loading}>
-                                            {loading ? 'Verifying...' : 'Generate Certificate'}
+                                            {loading ? 'Verifying...' : 'Get Certificate'}
                                         </button>
                                     </div>
                                 </form>
