@@ -1,35 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../../firebase/config';
-import jsPDF from 'jspdf'; // Import the new library
+import { supabase } from '../../supabaseClient';
+import jsPDF from 'jspdf';
 
 const EventPage = () => {
     const { eventId } = useParams();
     const [event, setEvent] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    
-    const [certificateName, setCertificateName] = useState('');
-    const [userInput, setUserInput] = useState('');
-    const [isVerified, setIsVerified] = useState(false);
+    const [userName, setUserName] = useState('');
+    const [participantName, setParticipantName] = useState(null); // Stores the validated name
 
     useEffect(() => {
         const fetchEvent = async () => {
             try {
-                const docRef = doc(db, 'events', eventId);
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    const eventData = { id: docSnap.id, ...docSnap.data() };
-                    setEvent(eventData);
-                    if (eventData.mode === 'public') {
-                        setIsVerified(true);
-                    }
+                // Fetch event details from Supabase 'events' table
+                const { data, error } = await supabase
+                    .from('events')
+                    .select('*')
+                    .eq('id', eventId)
+                    .single();
+
+                if (error) throw error;
+                if (data) {
+                    setEvent(data);
                 } else {
                     setError('Event not found. Please check the link.');
                 }
             } catch (err) {
-                setError('Failed to load event details.');
+                console.error("Error fetching event:", err);
+                setError('Failed to load event details. ' + err.message);
             } finally {
                 setLoading(false);
             }
@@ -37,69 +37,83 @@ const EventPage = () => {
         fetchEvent();
     }, [eventId]);
 
-    const handleSubmit = async (e) => {
+    const handleAccessSubmit = async (e) => {
         e.preventDefault();
-        if (!userInput.trim()) return;
+        if (!userName.trim()) return;
         setLoading(true);
         setError('');
 
         if (event.mode === 'public') {
-            setCertificateName(userInput);
-        } else { 
-            const participantsRef = collection(db, 'events', eventId, 'participants');
-            const q = query(participantsRef, where("mobile", "==", userInput.trim()));
-            const querySnapshot = await getDocs(q);
-            if (!querySnapshot.empty) {
-                const participantData = querySnapshot.docs[0].data();
-                setCertificateName(participantData.name);
-                setIsVerified(true);
-            } else {
-                setError('This mobile number is not registered for this event.');
-                setIsVerified(false);
+            setParticipantName(userName.trim()); // Use the name they entered
+        } else {
+            // Manual mode: check if user is in the participants list
+            try {
+                const { data, error } = await supabase
+                    .from('participants')
+                    .select('name')
+                    .eq('event_id', eventId)
+                    .eq('mobile', userName.trim()) // Using 'userName' state for mobile number
+                    .single();
+
+                if (error) {
+                    // Check if the error is "PGRST116" (PostgREST) which means no rows found
+                    if (error.code === 'PGRST116') {
+                        setError('You are not registered for this event. Please check the mobile number you entered.');
+                    } else {
+                        throw error;
+                    }
+                } else if (data) {
+                    setParticipantName(data.name); // Set the validated name
+                } else {
+                    setError('You are not registered for this event. Please check the mobile number you entered.');
+                }
+            } catch (err) {
+                console.error("Error validating participant:", err);
+                setError('You are not registered for this event. Please check the mobile number you entered.');
             }
         }
         setLoading(false);
     };
 
-    if (loading && !event) return <div className="vh-100 d-flex justify-content-center align-items-center"><div className="spinner-border text-primary"></div></div>;
-    
-    if (error && !isVerified) return <div className="vh-100 d-flex justify-content-center align-items-center"><p className="alert alert-danger">{error}</p></div>;
-
-    const renderInputForm = () => (
-        <div>
-            <h2 className="h3 fw-bold text-center text-primary mb-2">{event?.eventName}</h2>
-            <p className="text-center text-muted mb-4">{event?.eventDescription}</p>
-            <hr />
-            <form onSubmit={handleSubmit}>
-                {event.mode === 'manual' ? (
-                     <div className="mb-3">
-                        <label htmlFor="mobile" className="form-label">Enter your registered mobile number:</label>
-                        <input type="tel" id="mobile" value={userInput} onChange={(e) => setUserInput(e.target.value)} className="form-control" required />
-                    </div>
-                ) : (
-                    <div className="mb-3">
-                        <label htmlFor="userName" className="form-label">Enter your name for the certificate:</label>
-                        <input type="text" id="userName" value={userInput} onChange={(e) => setUserInput(e.target.value)} className="form-control" required />
-                    </div>
-                )}
-                <div className="d-grid">
-                    <button type="submit" className="btn btn-success" disabled={loading}>
-                        {loading ? 'Verifying...' : 'Generate Certificate'}
-                    </button>
-                </div>
-            </form>
-        </div>
-    );
-
+    if (loading) return <div className="vh-100 d-flex justify-content-center align-items-center"><div className="spinner-border text-primary"></div></div>;
+    if (error && !participantName) return <div className="vh-100 d-flex justify-content-center align-items-center"><p className="alert alert-danger">{error}</p></div>;
 
     return (
         <div className="min-vh-100 d-flex justify-content-center align-items-center p-4" style={{ backgroundColor: '#f0f2f5' }}>
             <div className="card shadow-lg border-0" style={{ maxWidth: '600px', width: '100%' }}>
                 <div className="card-body p-5">
-                    {isVerified && certificateName ? (
-                        <CertificateGenerator event={event} userName={certificateName} />
+                    {participantName ? (
+                        <CertificateGenerator event={event} userName={participantName} />
                     ) : (
-                        renderInputForm()
+                        <div>
+                            <h2 className="h3 fw-bold text-center text-primary mb-2">{event?.eventName}</h2>
+                            <p className="text-center text-muted mb-4">{event?.eventDescription}</p>
+                            <hr />
+                            <h3 className="h5 text-center my-4">Get Your Certificate</h3>
+                            <form onSubmit={handleAccessSubmit}>
+                                <div className="mb-3">
+                                    <label htmlFor="userName" className="form-label">
+                                        {event?.mode === 'manual' ?
+                                        'Enter your registered Mobile Number' :
+                                        'Enter your name as you want it on the certificate'}
+                                    </label>
+                                    <input
+                                        type={event?.mode === 'manual' ? 'tel' : 'text'}
+                                        id="userName"
+                                        value={userName}
+                                        onChange={(e) => setUserName(e.target.value)}
+                                        className="form-control"
+                                        placeholder={event?.mode === 'manual' ? '10-digit mobile number' : 'Your Full Name'}
+                                        required
+                                    />
+                                </div>
+                                <div className="d-grid">
+                                    <button type="submit" className="btn btn-success" disabled={loading}>
+                                        {loading ? 'Verifying...' : 'Generate Certificate'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     )}
                 </div>
             </div>
@@ -107,61 +121,107 @@ const EventPage = () => {
     );
 };
 
+// --- CertificateGenerator ---
 const CertificateGenerator = ({ event, userName }) => {
     const [isDownloading, setIsDownloading] = useState(false);
+    const [previewUrl, setPreviewUrl] = useState(null);
+    const [isLoadingPreview, setIsLoadingPreview] = useState(true);
 
-    const fontSize = event.fontSize || 60;
-    const positionX = event.positionX || 50;
-    const positionY = event.positionY || 50;
-    const fontWeight = event.fontWeight || 'bold';
-    const fontFamily = event.fontFamily || 'Poppins'; // Get font family
+    // Reusable function to create the certificate on a canvas
+    const generateCanvas = useCallback(() => {
+        return new Promise(async (resolve, reject) => {
+            try {
+                if (!event.certificateUrl) {
+                    return reject(new Error("Certificate template is not available."));
+                }
+
+                // 1. Create a canvas element in memory
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                // 2. Load the certificate template image
+                const template = await new Promise((resolveImg, rejectImg) => {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = () => resolveImg(img);
+                    img.onerror = (err) => rejectImg(new Error("Could not load certificate image."));
+                    img.src = event.certificateUrl;
+                });
+
+                // 3. Set canvas size to match the image and draw it
+                canvas.width = template.width;
+                canvas.height = template.height;
+                ctx.drawImage(template, 0, 0);
+
+                // 4. Load the font
+                const font = `${event.fontWeight || 'bold'} ${event.fontSize || 60}px "${event.fontFamily || 'Poppins'}"`;
+                try {
+                    // Important: Ensure font is loaded before drawing
+                    await document.fonts.load(font);
+                } catch (err) {
+                    console.warn(`Could not load font: ${event.fontFamily}. Using fallback.`);
+                }
+
+                // 5. Set font and draw the user's name
+                ctx.fillStyle = '#333333';
+                ctx.font = font;
+                ctx.textAlign = 'left'; // Use left alignment
+                ctx.textBaseline = 'middle';
+
+                // Calculate position based on admin settings
+                const x = (canvas.width * (event.positionX || 50)) / 100;
+                const y = (canvas.height * (event.positionY || 50)) / 100;
+
+                ctx.fillText(userName, x, y);
+
+                resolve(canvas);
+
+            } catch (error) {
+                console.error("Failed to generate canvas:", error);
+                reject(error);
+            }
+        });
+    }, [event, userName]); // Dependencies for the canvas generation
+
+
+    // This effect generates the preview image for the <img> tag
+    useEffect(() => {
+        setIsLoadingPreview(true);
+        generateCanvas().then(canvas => {
+            setPreviewUrl(canvas.toDataURL('image/png'));
+            setIsLoadingPreview(false);
+        }).catch(err => {
+            console.error("Failed to generate preview:", err);
+            setIsLoadingPreview(false);
+        });
+    }, [generateCanvas]); // Dependency array updated
 
     const handleDownload = async () => {
-        if (!event.certificateUrl) {
-            alert("Certificate template is not available for this event.");
-            return;
-        }
         setIsDownloading(true);
-
         try {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const template = await new Promise((resolve, reject) => {
-                const img = new Image();
-                img.crossOrigin = 'anonymous';
-                img.onload = () => resolve(img);
-                img.onerror = () => reject(new Error("Could not load certificate image."));
-                img.src = event.certificateUrl;
-            });
+            const canvas = await generateCanvas();
 
-            canvas.width = template.width;
-            canvas.height = template.height;
-            ctx.drawImage(template, 0, 0);
-
-            // Use dynamic values from the event, including font family
-            ctx.fillStyle = '#333333';
-            ctx.font = `${fontWeight} ${fontSize}px "${fontFamily}"`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            const x = (canvas.width * positionX) / 100;
-            const y = (canvas.height * positionY) / 100;
-            ctx.fillText(userName, x, y);
-
-            // --- PDF Generation Logic ---
-            const imgData = canvas.toDataURL('image/jpeg', 1.0);
+            // Create a new PDF document
             const pdf = new jsPDF({
-                orientation: template.width > template.height ? 'landscape' : 'portrait',
-                unit: 'px',
-                format: [template.width, template.height]
+                orientation: canvas.width > canvas.height ? 'l' : 'p',
+                unit: 'pt',
+                format: [canvas.width, canvas.height]
             });
 
-            pdf.addImage(imgData, 'JPEG', 0, 0, template.width, template.height);
+            // Add the canvas image to the PDF
+            pdf.addImage(
+                canvas.toDataURL('image/png'),
+                'PNG',
+                0, 0,
+                canvas.width, canvas.height
+            );
+
+            // Trigger the download
             pdf.save(`certificate-${userName.replace(/\s+/g, '-')}.pdf`);
-            // --- End of PDF Logic ---
 
         } catch (error) {
             console.error("Failed to generate certificate:", error);
-            alert("An error occurred while creating your certificate.");
+            alert("An error occurred while creating your certificate. Please try again.");
         } finally {
             setIsDownloading(false);
         }
@@ -171,33 +231,33 @@ const CertificateGenerator = ({ event, userName }) => {
         <div className="text-center">
             <h2 className="h3 fw-bold text-success mb-3">Congratulations, {userName}!</h2>
             <p className="text-muted mb-4">Your certificate for "{event.eventName}" is ready.</p>
-            
-            <div className="position-relative mb-4">
-                 <img src={event.certificateUrl} alt="Certificate" className="img-fluid border rounded shadow-sm" />
-                 <p 
-                    className="position-absolute" 
-                    style={{
-                        top: `${positionY}%`, 
-                        left: `${positionX}%`, 
-                        transform: 'translate(-50%, -50%)',
-                        color: '#333333',
-                        fontSize: `${fontSize / 30}vw`,
-                        fontWeight: fontWeight,
-                        fontFamily: `'${fontFamily}', sans-serif`, // Apply font family to preview
-                        padding: '0 10px',
-                        width: '100%'
-                    }}
-                >
-                    {userName}
-                </p>
+
+            {/* The visual preview for the user */}
+            <div className="position-relative mb-4 border rounded shadow-sm" style={{minHeight: '200px', background: '#eee'}}>
+                {isLoadingPreview ? (
+                    <div className="d-flex justify-content-center align-items-center" style={{height: '200px'}}>
+                        <div className="spinner-border text-primary" role="status">
+                            <span className="visually-hidden">Loading Preview...</span>
+                        </div>
+                    </div>
+                ) : (
+                    // Display the image generated from the canvas (which includes the name)
+                    <img src={previewUrl} alt="Certificate Preview" className="img-fluid" style={{ display: 'block' }}/>
+                    // REMOVED the redundant <p> tag that was causing the duplicate name
+                )}
             </div>
 
             <div className="d-grid">
-                <button onClick={handleDownload} className="btn btn-danger btn-lg" disabled={isDownloading}>
+                <button onClick={handleDownload} className="btn btn-primary btn-lg" disabled={isDownloading}>
                     {isDownloading ? (
-                        <><span className="spinner-border spinner-border-sm me-2"></span>Preparing PDF...</>
+                        <>
+                            <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            Preparing PDF...
+                        </>
                     ) : (
-                        <><i className="bi bi-file-earmark-pdf-fill me-2"></i>Download Certificate (PDF)</>
+                        <>
+                            <i className="bi bi-download me-2"></i>Download PDF
+                        </>
                     )}
                 </button>
             </div>
