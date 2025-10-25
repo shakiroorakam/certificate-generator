@@ -1,7 +1,6 @@
 {
   "name": "certificate-generator",
   "version": "0.1.0",
-  "homepage": "https://shakiroorakam.github.io/certificate-generator",
   "private": true,
   "dependencies": {
     "@supabase/supabase-js": "^2.76.1",
