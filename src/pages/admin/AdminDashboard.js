@@ -1,123 +1,153 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient'; // Adjusted path
 import Modal from '../../components/Modal'; // Adjusted path
 
 const AdminDashboard = ({ session }) => {
+    const navigate = useNavigate();
     const [events, setEvents] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(true); // Start with loading true
     const [error, setError] = useState('');
     const [modalMessage, setModalMessage] = useState('');
 
     useEffect(() => {
         const fetchEvents = async () => {
-            if (!session) return; // Don't fetch if no session
-            setLoading(true);
+            setLoading(true); // Ensure loading is true when fetching starts
+            setError(''); // Clear previous errors
             try {
-                const { data, error } = await supabase
+                // Fetch events created by the logged-in user
+                const { data, error: fetchError } = await supabase
                     .from('events')
-                    .select('id, eventName, mode, created_at') // Select only needed fields
-                    .eq('user_id', session.user.id) // Fetch only events created by this user
+                    .select('*')
+                    .eq('user_id', session.user.id) // Filter by logged-in user
                     .order('created_at', { ascending: false });
 
-                if (error) {
-                    // Check if error is due to RLS before throwing
-                    if (error.message.includes('security policy')) {
-                         console.warn("RLS policy might be preventing event fetching. Ensure SELECT policy exists for authenticated users.");
-                         setError("You might not have permission to view events. Check RLS policies.");
+                if (fetchError) {
+                    // Check if the error is RLS related or other DB issue
+                     if (fetchError.message.includes("security policy")) {
+                        setError("Could not fetch events due to security policy. Please check Supabase RLS settings.");
                     } else {
-                        throw error;
+                        throw fetchError; // Rethrow other errors
                     }
+                } else {
+                    setEvents(data || []); // Ensure events is an array even if data is null/undefined
                 }
-                setEvents(data || []); // Ensure events is always an array
+
             } catch (err) {
                 console.error("Error fetching events:", err);
-                setError("Failed to fetch events. " + err.message);
+                setError("Failed to load events. " + err.message);
+                setEvents([]); // Clear events on error
             } finally {
-                setLoading(false);
+                setLoading(false); // Set loading false after fetch attempt
             }
         };
 
-        fetchEvents();
+        if (session) {
+            fetchEvents();
+        } else {
+             setError("Not logged in."); // Should ideally be handled by router, but good fallback
+             setLoading(false);
+        }
+
     }, [session]); // Re-fetch if session changes
 
-    const getModeLabel = (mode) => {
-        return mode === 'manual' ? 'Manual (Registered Only)' : 'Public (Anyone)';
+    const handleSignOut = async () => {
+        setLoading(true);
+        const { error: signOutError } = await supabase.auth.signOut();
+        setLoading(false);
+        if (signOutError) {
+            setError("Failed to sign out: " + signOutError.message);
+        } else {
+             // App.js listener will handle redirecting to login
+             // No need to navigate here if App.js handles it based on session change
+        }
     };
-
-    const copyShareableLink = (eventId) => {
-        const shareableLink = `${window.location.origin}${window.location.pathname}#/event/${eventId}`;
-        navigator.clipboard.writeText(shareableLink)
-            .then(() => setModalMessage('Event link copied to clipboard!'))
-            .catch(err => setError('Failed to copy link.'));
-    };
-
-
-    if (loading) {
-        return <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '300px' }}><div className="spinner-border text-primary"></div></div>;
-    }
 
     return (
         <div>
             {modalMessage && <Modal message={modalMessage} onClose={() => setModalMessage('')} />}
-             {error && <div className="alert alert-danger" role="alert">{error}</div>}
 
             <div className="d-flex justify-content-between align-items-center mb-4">
-                <h2 className="h4 mb-0 fw-bold text-dark">Your Events</h2>
+                <h1 className="h3 mb-0 text-primary fw-bold">My Events</h1>
                 <Link to="/admin/create-event" className="btn btn-primary">
                     <i className="bi bi-plus-circle-fill me-2"></i>Create New Event
                 </Link>
             </div>
 
-            {events.length === 0 && !loading && !error && (
-                <div className="card text-center shadow-sm">
-                    <div className="card-body p-5">
-                        <i className="bi bi-calendar-x fs-1 text-muted mb-3"></i>
-                        <h5 className="card-title">No Events Found</h5>
-                        <p className="card-text text-muted">You haven't created any events yet.</p>
-                        <Link to="/admin/create-event" className="btn btn-primary mt-3">
-                            Create Your First Event
-                        </Link>
+            {/* Display Loading State */}
+            {loading && (
+                <div className="text-center p-5">
+                    <div className="spinner-border text-primary" role="status">
+                        <span className="visually-hidden">Loading events...</span>
                     </div>
+                    <p className="mt-2">Loading events...</p>
                 </div>
             )}
 
-            {events.length > 0 && (
-                <div className="row g-4">
-                    {events.map((event) => (
-                        <div key={event.id} className="col-md-6 col-lg-4">
-                            <div className="card h-100 shadow-sm border-0">
-                                <div className="card-body d-flex flex-column">
-                                    <h5 className="card-title fw-bold text-primary">{event.eventName}</h5>
-                                    <p className="card-text mb-2">
-                                        <span className={`badge ${event.mode === 'manual' ? 'bg-warning text-dark' : 'bg-success'}`}>
-                                            {getModeLabel(event.mode)}
-                                        </span>
-                                    </p>
-                                    <p className="card-text text-muted small mb-3">
-                                        Created: {new Date(event.created_at).toLocaleDateString()}
-                                    </p>
-                                    <div className="mt-auto d-flex justify-content-between align-items-center">
-                                        <Link to={`/admin/manage-event/${event.id}`} className="btn btn-outline-primary btn-sm">
-                                            Manage Event
-                                        </Link>
-                                        <button
-                                            className="btn btn-outline-secondary btn-sm"
-                                            onClick={() => copyShareableLink(event.id)}
-                                            title="Copy Shareable Link"
-                                        >
-                                            <i className="bi bi-clipboard-check"></i> Copy Link
-                                        </button>
-                                    </div>
-                                </div>
+             {/* Display Error Message if fetch failed */}
+            {!loading && error && (
+                <div className="alert alert-danger" role="alert">
+                    <h4 className="alert-heading">Error</h4>
+                    <p>{error}</p>
+                    <hr />
+                    <p className="mb-0">Please check your connection and Supabase RLS policies, then refresh the page.</p>
+                 </div>
+            )}
+
+            {/* Display Event Cards or No Events Message */}
+            {!loading && !error && (
+                <>
+                    {events.length === 0 ? (
+                        <div className="card shadow-sm border-0 text-center">
+                             <div className="card-body p-5">
+                                 <i className="bi bi-calendar-x fs-1 text-muted"></i>
+                                <h5 className="card-title mt-3">No Events Found</h5>
+                                <p className="card-text text-muted">You haven't created any events yet.</p>
+                                <Link to="/admin/create-event" className="btn btn-success mt-2">
+                                    Create Your First Event
+                                </Link>
                             </div>
                         </div>
-                    ))}
-                </div>
+                    ) : (
+                        <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                            {events.map((event) => (
+                                <div key={event.id} className="col">
+                                    <div className="card h-100 shadow-sm border-0">
+                                         {/* Optional: Add image if you store one for the event */}
+                                        {/* <img src="..." className="card-img-top" alt="..."> */}
+                                        <div className="card-body d-flex flex-column">
+                                            <h5 className="card-title text-primary">{event.eventName}</h5>
+                                            <p className="card-text text-muted small flex-grow-1">
+                                                {event.eventDescription ? (event.eventDescription.substring(0, 100) + (event.eventDescription.length > 100 ? '...' : '')) : <i>No description</i>}
+                                            </p>
+                                            <div className="mt-3 d-flex justify-content-between align-items-center">
+                                                <span className={`badge ${event.mode === 'public' ? 'bg-success' : 'bg-info'}`}>
+                                                    {event.mode === 'public' ? 'Public' : 'Manual'}
+                                                </span>
+                                                <Link to={`/admin/manage-event/${event.id}`} className="btn btn-outline-primary btn-sm">
+                                                    Manage <i className="bi bi-arrow-right-short"></i>
+                                                </Link>
+                                            </div>
+                                        </div>
+                                         <div className="card-footer bg-light border-0 text-muted small">
+                                             Created: {new Date(event.created_at).toLocaleDateString()}
+                                         </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </>
             )}
+
+             {/* Sign Out Button - Moved lower for clarity, styling might need adjustment */}
+            {/* <div className="mt-5">
+                 <button onClick={handleSignOut} className="btn btn-outline-danger" disabled={loading}>
+                     {loading ? 'Signing out...' : 'Sign Out'}
+                 </button>
+             </div> */}
         </div>
     );
 };
 
 export default AdminDashboard;
-

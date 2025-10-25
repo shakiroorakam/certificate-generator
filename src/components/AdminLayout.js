@@ -1,70 +1,73 @@
-import React, { useState } from 'react';
-import { Link, Outlet, useNavigate } from 'react-router-dom';
-import { supabase } from '../supabaseClient'; // Adjusted path
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { supabase } from '../supabaseClient'; // Adjust path if needed
 
-const AdminLayout = ({ session }) => {
-    const navigate = useNavigate();
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+const AdminLayout = ({ children, session }) => {
+    const location = useLocation(); // To highlight active link
 
-    const handleLogout = async () => {
-        const { error } = await supabase.auth.signOut();
-        if (error) {
-            console.error('Error logging out:', error);
-        } else {
-            navigate('/'); // Redirect to login page after logout
-        }
-    };
-
-    const toggleSidebar = () => {
-        setIsSidebarOpen(!isSidebarOpen);
+    const handleSignOut = async () => {
+        await supabase.auth.signOut();
+        // The App.js listener will handle redirecting
     };
 
     return (
-        <div className="d-flex" style={{ minHeight: '100vh', backgroundColor: '#f8f9fa' }}>
+        <div className="d-flex" style={{ minHeight: '100vh', backgroundColor: '#f8f9fa' /* Light background */ }}>
             {/* Sidebar */}
-            <nav id="sidebar" className={`bg-dark text-white p-4 shadow ${isSidebarOpen ? '' : 'd-none'}`} style={{ width: '250px', transition: 'width 0.3s' }}>
-                <h3 className="text-primary mb-4 fw-bold">Admin Panel</h3>
-                <ul className="nav flex-column mb-auto">
-                    <li className="nav-item mb-2">
-                        <Link to="/admin" className="nav-link text-white fs-5">
-                            <i className="bi bi-speedometer2 me-2"></i>Dashboard
+            <nav className="d-flex flex-column flex-shrink-0 p-3 text-white bg-dark" style={{ width: '280px' }}>
+                <Link to="/admin" className="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
+                    <i className="bi bi-shield-lock-fill me-2 fs-4"></i>
+                    <span className="fs-4">Admin Panel</span>
+                </Link>
+                <hr />
+                <ul className="nav nav-pills flex-column mb-auto">
+                    <li className="nav-item">
+                        <Link to="/admin" className={`nav-link text-white ${location.pathname === '/admin' ? 'active' : ''}`} aria-current="page">
+                            <i className="bi bi-speedometer2 me-2"></i>
+                            Dashboard
                         </Link>
                     </li>
-                    <li className="nav-item mb-2">
-                        <Link to="/admin/create-event" className="nav-link text-white fs-5">
-                            <i className="bi bi-calendar-plus me-2"></i>Create Event
+                    <li>
+                        <Link to="/admin/create-event" className={`nav-link text-white ${location.pathname === '/admin/create-event' ? 'active' : ''}`}>
+                            <i className="bi bi-calendar-plus-fill me-2"></i>
+                            Create Event
                         </Link>
                     </li>
-                    {/* Add more admin navigation links here */}
+                    {/* Add other admin links here */}
                 </ul>
-                <hr className="text-secondary" />
+                <hr />
                 <div className="dropdown">
-                    <button className="btn btn-outline-light w-100" onClick={handleLogout}>
-                        <i className="bi bi-box-arrow-right me-2"></i>Logout
-                    </button>
-                    <small className="d-block text-muted text-center mt-2">{session?.user?.email}</small>
+                    <a href="#/" className="d-flex align-items-center text-white text-decoration-none dropdown-toggle" id="dropdownUser1" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i className="bi bi-person-circle fs-4 me-2"></i>
+                        <strong>{session?.user?.email || 'Admin'}</strong>
+                    </a>
+                    <ul className="dropdown-menu dropdown-menu-dark text-small shadow" aria-labelledby="dropdownUser1">
+                        {/* <li><a className="dropdown-item" href="#/">Settings</a></li>
+                        <li><a className="dropdown-item" href="#/">Profile</a></li>
+                        <li><hr className="dropdown-divider" /></li> */}
+                        <li><button className="dropdown-item" onClick={handleSignOut}>Sign out</button></li>
+                    </ul>
                 </div>
             </nav>
 
-            {/* Main Content */}
+            {/* Main Content Area */}
             <div className="flex-grow-1 d-flex flex-column">
-                {/* Top Navbar for Toggle */}
-                <header className="bg-white shadow-sm p-3 d-flex justify-content-between align-items-center sticky-top">
-                    <button className="btn btn-outline-secondary" onClick={toggleSidebar}>
-                        <i className={`bi ${isSidebarOpen ? 'bi-x-lg' : 'bi-list'}`}></i>
-                    </button>
-                    <h1 className="h4 mb-0 text-primary">Certificate Generator</h1>
-                    {/* You can add user profile/settings here if needed */}
+                {/* Header (Optional - Can be simple or more complex) */}
+                <header className="navbar navbar-light bg-light border-bottom sticky-top px-3">
+                    <span className="navbar-brand mb-0 h1 text-primary">Certificate Generator</span>
+                    {/* Add maybe breadcrumbs or user info here if needed */}
                 </header>
 
-                {/* Page Content */}
-                <main className="p-4 flex-grow-1">
-                    <Outlet /> {/* Child routes will render here */}
+                {/* Content */}
+                <main className="flex-grow-1 p-4" style={{ backgroundColor: '#f0f2f5' }}>
+                     {/* <<< CRITICAL: Render children passed to the layout >>> */}
+                    {children}
                 </main>
 
-                {/* Footer */}
-                <footer className="bg-light text-center p-3 border-top">
-                    <small className="text-muted">&copy; {new Date().getFullYear()} Certificate Generator Admin</small>
+                {/* Footer (Optional) */}
+                <footer className="footer mt-auto py-3 bg-light border-top text-center">
+                    <div className="container">
+                        <span className="text-muted">&copy; {new Date().getFullYear()} Certificate Generator Admin</span>
+                    </div>
                 </footer>
             </div>
         </div>
@@ -72,4 +75,3 @@ const AdminLayout = ({ session }) => {
 };
 
 export default AdminLayout;
-
