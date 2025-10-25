@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Navigate } from 'react-router-dom';
-import { supabase } from '../../supabaseClient'; // Adjusted path
-import ManageEventLayout from '../../components/ManageEventLayout'; // Import the new layout
+// Removed unused 'Navigate' import
+import { useParams, Link } from 'react-router-dom';
+import { supabase } from '../../supabaseClient';
+import ManageEventLayout from '../../components/ManageEventLayout'; // Assuming the layout handles its own state now
 
-// This component now primarily fetches data and passes it to the layout component.
+// This component now mainly fetches data and passes it down
 const ManageEvent = ({ session }) => {
     const { eventId } = useParams();
     const [event, setEvent] = useState(null);
@@ -12,62 +13,82 @@ const ManageEvent = ({ session }) => {
 
     useEffect(() => {
         const fetchEvent = async () => {
-            if (!session || !eventId) {
+            if (!eventId || !session?.user) {
+                setError("Event ID missing or user not logged in.");
                 setLoading(false);
-                setError("Missing session or event ID.");
                 return;
             }
-
             setLoading(true);
             try {
-                const { data: eventData, error: eventError } = await supabase
+                const { data, error: fetchError } = await supabase
                     .from('events')
                     .select('*')
                     .eq('id', eventId)
-                    .eq('user_id', session.user.id) // Ensure the user owns this event
+                    // Optional: Add RLS check simulation if needed, but RLS should handle this
+                    // .eq('user_id', session.user.id)
                     .single();
 
-                if (eventError) {
-                    if (eventError.code === 'PGRST116') { // PostgREST code for "No rows found"
-                        setError("Event not found or you don't have permission to access it.");
-                    } else {
-                        throw eventError;
-                    }
-                } else if (eventData) {
-                    setEvent(eventData);
-                } else {
-                     setError("Event not found or you don't have permission to access it.");
-                }
+                if (fetchError) throw fetchError;
+                if (!data) throw new Error("Event not found or access denied.");
+
+                setEvent(data);
+                setError(''); // Clear previous errors on success
 
             } catch (err) {
                 console.error("Error loading event:", err);
                 setError("Failed to load event data. " + err.message);
+                setEvent(null); // Clear event data on error
             } finally {
                 setLoading(false);
             }
         };
 
         fetchEvent();
-    }, [eventId, session]); // Re-fetch if eventId or session changes
+    }, [eventId, session]); // Refetch if eventId or session changes
 
     if (loading) {
-        return <div className="vh-100 d-flex justify-content-center align-items-center"><div className="spinner-border text-primary"></div></div>;
-    }
-
-    if (error) {
         return (
-            <div className="vh-100 d-flex flex-column justify-content-center align-items-center">
-                <p className="alert alert-danger">{error}</p>
-                <a href="/#/admin" className="btn btn-secondary">Back to Dashboard</a>
+            <div className="vh-100 d-flex justify-content-center align-items-center">
+                <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading Event...</span>
+                </div>
             </div>
         );
     }
 
-    // Render the layout component, passing the fetched event data and session
+    // Display error if loading finished and event is still null
+    if (!event && error) {
+        return (
+             // Use AdminLayout structure even for errors if desired, or a simpler message
+             <div className="vh-100 d-flex justify-content-center align-items-center p-4">
+                <div className="alert alert-danger" role="alert">
+                    <h4 className="alert-heading">Error Loading Event</h4>
+                    <p>{error}</p>
+                    <hr />
+                    <Link to="/admin" className="btn btn-secondary">Back to Dashboard</Link>
+                </div>
+            </div>
+        );
+    }
+    // If loading is done, no error, but event is somehow still null (edge case)
+    if (!event) {
+         return (
+             <div className="vh-100 d-flex justify-content-center align-items-center">
+                 <p className="text-muted">Event data could not be loaded.</p>
+                 <Link to="/admin" className="ms-3">Back to Dashboard</Link>
+             </div>
+        );
+    }
+
+
+    // Pass the fetched event data and session to the layout component
     return (
-         <ManageEventLayout event={event} session={session} eventId={eventId} />
+        <ManageEventLayout
+            event={event}
+            session={session}
+            eventId={eventId}
+        />
     );
 };
 
 export default ManageEvent;
-
