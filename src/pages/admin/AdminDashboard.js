@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom'; // Removed unused 'useNavigate'
 import { supabase } from '../../supabaseClient'; // Adjusted path
 import Modal from '../../components/Modal'; // Adjusted path
 
 const AdminDashboard = ({ session }) => {
-    const navigate = useNavigate();
+    // const navigate = useNavigate(); // Removed unused variable
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true); // Start with loading true
     const [error, setError] = useState('');
@@ -51,17 +51,8 @@ const AdminDashboard = ({ session }) => {
 
     }, [session]); // Re-fetch if session changes
 
-    const handleSignOut = async () => {
-        setLoading(true);
-        const { error: signOutError } = await supabase.auth.signOut();
-        setLoading(false);
-        if (signOutError) {
-            setError("Failed to sign out: " + signOutError.message);
-        } else {
-             // App.js listener will handle redirecting to login
-             // No need to navigate here if App.js handles it based on session change
-        }
-    };
+    // Removed unused handleSignOut function
+    // const handleSignOut = async () => { ... };
 
     return (
         <div>
@@ -139,13 +130,6 @@ const AdminDashboard = ({ session }) => {
                     )}
                 </>
             )}
-
-             {/* Sign Out Button - Moved lower for clarity, styling might need adjustment */}
-            {/* <div className="mt-5">
-                 <button onClick={handleSignOut} className="btn btn-outline-danger" disabled={loading}>
-                     {loading ? 'Signing out...' : 'Sign Out'}
-                 </button>
-             </div> */}
         </div>
     );
 };
