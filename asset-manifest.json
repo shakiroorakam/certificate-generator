@@ -1,19 +1,21 @@
 {
   "files": {
-    "main.css": "/certificate-generator/static/css/main.77118d6e.css",
-    "main.js": "/certificate-generator/static/js/main.c3478442.js",
+    "main.css": "/certificate-generator/static/css/main.bb846dfb.css",
+    "main.js": "/certificate-generator/static/js/main.a9936d7c.js",
     "static/js/239.7b711f9b.chunk.js": "/certificate-generator/static/js/239.7b711f9b.chunk.js",
     "static/js/977.37376528.chunk.js": "/certificate-generator/static/js/977.37376528.chunk.js",
     "static/js/455.221b257b.chunk.js": "/certificate-generator/static/js/455.221b257b.chunk.js",
+    "static/media/bootstrap-icons.woff?": "/certificate-generator/static/media/bootstrap-icons.1295669cd4e305c97f2c.woff",
+    "static/media/bootstrap-icons.woff2?": "/certificate-generator/static/media/bootstrap-icons.92ea18a81d737146ff04.woff2",
     "index.html": "/certificate-generator/index.html",
-    "main.77118d6e.css.map": "/certificate-generator/static/css/main.77118d6e.css.map",
-    "main.c3478442.js.map": "/certificate-generator/static/js/main.c3478442.js.map",
+    "main.bb846dfb.css.map": "/certificate-generator/static/css/main.bb846dfb.css.map",
+    "main.a9936d7c.js.map": "/certificate-generator/static/js/main.a9936d7c.js.map",
     "239.7b711f9b.chunk.js.map": "/certificate-generator/static/js/239.7b711f9b.chunk.js.map",
     "977.37376528.chunk.js.map": "/certificate-generator/static/js/977.37376528.chunk.js.map",
     "455.221b257b.chunk.js.map": "/certificate-generator/static/js/455.221b257b.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.77118d6e.css",
-    "static/js/main.c3478442.js"
+    "static/css/main.bb846dfb.css",
+    "static/js/main.a9936d7c.js"
   ]
 }
